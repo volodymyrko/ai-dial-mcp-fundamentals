@@ -35,6 +35,7 @@ class DialClient:
 
     async def _stream_response(self, messages: list[Message]) -> Message:
         """Stream OpenAI response and handle tool calls"""
+
         stream = await self.openai.chat.completions.create(
             **{
                 "model": "gpt-4o",
@@ -88,4 +89,20 @@ class DialClient:
         # 2. Get tool name and tool arguments (arguments is a JSON, don't forget about that)
         # 3. Wrap into try/except block and call mcp_client tool call. If succeed then add tool message (don't forget
         #    about tool call id), otherwise add tool message with error message (it kind of fallback strategy).
-        raise NotImplementedError()
+        # raise NotImplementedError()
+
+        for tool in ai_message.tool_calls:
+            function = tool['function']
+            try:
+                call_result = await self.mcp_client.call_tool(tool_name=function['name'], tool_args=json.loads(function['arguments']))
+            except Exception as e:
+                call_result = f'error calling tool: {e}'
+
+            messages.append(
+                Message(
+                    role=Role.TOOL,
+                    content=call_result,
+                    tool_call_id=tool['id'],
+                    name=function['name'],
+                )
+            )
